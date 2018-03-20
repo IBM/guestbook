@@ -1,8 +1,8 @@
 # Build the guestbook example
 # Usage:
-#   [VERSION=v2] [REGISTRY="docker.io/ibmcom"] make build
+#   [VERSION=v1] [REGISTRY="docker.io/ibmcom"] make build
 
-VERSION?=v2
+VERSION?=v1
 REGISTRY?=docker.io/ibmcom
 
 all: build
