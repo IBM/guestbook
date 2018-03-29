@@ -70,6 +70,11 @@ func EnvHandler(rw http.ResponseWriter, req *http.Request) {
 	rw.Write(envJSON)
 }
 
+func HelloHandler(rw http.ResponseWriter, req *http.Request) {
+	reply := "Hello world from guestbook, Your app is up and running in a cluster!\n"
+	rw.Write([]byte(reply))
+}
+
 func HandleError(result interface{}, err error) (r interface{}) {
 	if err != nil {
 		panic(err)
@@ -88,6 +93,7 @@ func main() {
 	r.Path("/rpush/{key}/{value}").Methods("GET").HandlerFunc(ListPushHandler)
 	r.Path("/info").Methods("GET").HandlerFunc(InfoHandler)
 	r.Path("/env").Methods("GET").HandlerFunc(EnvHandler)
+	r.Path("/hello").Methods("GET").HandlerFunc(HelloHandler)
 
 	n := negroni.Classic()
 	n.UseHandler(r)
