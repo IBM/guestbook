@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
+	"math/rand"
 
 	"github.com/codegangsta/negroni"
 	"github.com/gorilla/mux"
@@ -32,6 +34,8 @@ import (
 var (
 	masterPool *simpleredis.ConnectionPool
 	slavePool  *simpleredis.ConnectionPool
+	startTime  time.Time
+	delay float64 = 10 + 5 * rand.Float64()
 )
 
 type Input struct {
@@ -76,6 +80,20 @@ func EnvHandler(rw http.ResponseWriter, req *http.Request) {
 
 	envJSON := HandleError(json.MarshalIndent(environment, "", "  ")).([]byte)
 	rw.Write(envJSON)
+}
+
+func HelloHandler(rw http.ResponseWriter, req *http.Request) {
+	hostName := os.Getenv("HOSTNAME")
+	reply := "Hello world from " + hostName + "  ! Great job getting the second stage up and running!\n"
+	rw.Write([]byte(reply))
+}
+
+func HealthzHandler(rw http.ResponseWriter, req *http.Request) {
+	if time.Now().Sub(startTime).Seconds() > delay {
+		http.Error(rw, "Timeout, Health check error!", http.StatusForbidden)
+	} else {
+		rw.Write([]byte("OK!"))
+	}
 }
 
 func HandleError(result interface{}, err error) (r interface{}) {
@@ -129,11 +147,15 @@ func main() {
 	slavePool = simpleredis.NewConnectionPoolHost("redis-slave:6379")
 	defer slavePool.Close()
 
+	startTime = time.Now()
+
 	r := mux.NewRouter()
 	r.Path("/lrange/{key}").Methods("GET").HandlerFunc(ListRangeHandler)
 	r.Path("/rpush/{key}/{value}").Methods("GET").HandlerFunc(ListPushHandler)
 	r.Path("/info").Methods("GET").HandlerFunc(InfoHandler)
 	r.Path("/env").Methods("GET").HandlerFunc(EnvHandler)
+	r.Path("/hello").Methods("GET").HandlerFunc(HelloHandler)
+	r.Path("/healthz").Methods("GET").HandlerFunc(HealthzHandler)
 
 	n := negroni.Classic()
 	n.UseHandler(r)
