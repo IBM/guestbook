@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: guestbook-v2
@@ -8,12 +8,12 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: guestbook
+      app: guestbook-v2
   replicas: 3
   template:
     metadata:
       labels:
-        app: guestbook
+        app: guestbook-v2
         version: "2.0"
     spec:
       containers:
@@ -23,7 +23,7 @@ spec:
           requests:
             cpu: 100m
             memory: 100Mi
-        env:
         ports:
-        - containerPort: 3000
-          name: http
+        - name: http
+          containerPort: 3000
+
