@@ -26,10 +26,10 @@ All of the commands specified should be run from this directory.
 
 Use the `redis-master-deployment.yaml` file to create a [deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) and Redis master [pod](https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/). The pod runs a Redis key-value server in a container. Using a replication controller is the preferred way to launch long-running pods, even for 1 replica, so that the pod benefits from the self-healing mechanism in Kubernetes (keeps the pods alive).
 
-1. Use the [redis-master-controller.yaml](redis-master-controller.yaml) file to create the Redis master replication controller in your Kubernetes cluster by running the `kubectl create -f` *`filename`* command:
+1. Use the [redis-master-deployment.yaml](redis-master-deployment.yaml) file to create the Redis master replication controller in your Kubernetes cluster by running the `kubectl create -f` *`filename`* command:
 
     ```console
-    $ kubectl create -f redis-master-controller.yaml
+    $ kubectl create -f redis-master-deployment.yaml
     replicationcontrollers/redis-master
     ```
 
@@ -84,10 +84,10 @@ Services find the pods to load balance based on pod labels. The pod that you cre
 
 The Redis master we created earlier is a single pod (REPLICAS = 1), while the Redis read slaves we are creating here are 'replicated' pods. In Kubernetes, a replication controller is responsible for managing the multiple instances of a replicated pod.
 
-1. Use the file [redis-slave-controller.yaml](redis-slave-controller.yaml) to create the replication controller by running the `kubectl create -f` *`filename`* command:
+1. Use the file [redis-slave-deployment.yaml](redis-slave-deployment.yaml) to create the replication controller by running the `kubectl create -f` *`filename`* command:
 
     ```console
-    $ kubectl create -f redis-slave-controller.yaml
+    $ kubectl create -f redis-slave-deployment.yaml
     replicationcontrollers/redis-slave
     ```
 
