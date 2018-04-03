@@ -55,14 +55,19 @@ def tone():
 if __name__ == '__main__':
     PORT = os.getenv('VCAP_APP_PORT', '5000')
     vcap_services = os.getenv('VCAP_SERVICES')
-    #id = os.getenv('VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_USERNAME')
-    #pwd = os.getenv('VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_PASSWORD')
-    #url = os.getenv('VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_URL')
-    username = "7a7620bc-c378-4760-986a-1451fb9dacc9"
-    pwd = "xxxx"
-    url = "gateway.watsonplatform.net/tone-analyzer/api"
+    id = os.getenv('VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_USERNAME')
+    pwd = os.getenv('VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_PASSWORD')
+    url = os.getenv('VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_URL')
+    usehttps = os.getenv('USE_HTTPS')
+    # id = "7a7620bc-c378-4760-986a-1451fb9dacc9"
+    # pwd = "xxxx"
+    if not url:
+        url = "gateway.watsonplatform.net/tone-analyzer/api"
+    scheme = 'http'
+    if os.getenv('USE_HTTPS'):
+      scheme = 'https'
     # https://gateway.watsonplatform.net/tone-analyzer/api/v3/tone?version=2017-09-21&sentences=false
-    tone_analyzer_ep = "http://" + username + ":" + pwd + "@" + url + "/v3/tone?version=2017-09-21&sentences=false"
+    tone_analyzer_ep = "" + scheme + "://" + id + ":" + pwd + "@" + url + "/v3/tone?version=2017-09-21&sentences=false"
 
     log.info("Starting analyzer tone_analyzer_ep: %s ", tone_analyzer_ep)
     app.run(host='0.0.0.0', port=int(PORT))
