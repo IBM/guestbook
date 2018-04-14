@@ -19,12 +19,11 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
 	"time"
-	"math/rand"
 
 	"github.com/codegangsta/negroni"
 	"github.com/gorilla/mux"
@@ -32,10 +31,16 @@ import (
 )
 
 var (
+	// For when Redis is used
 	masterPool *simpleredis.ConnectionPool
 	slavePool  *simpleredis.ConnectionPool
-	startTime  time.Time
-	delay float64 = 10 + 5 * rand.Float64()
+
+	// For when Redis is not used, we just keep it in memory
+	lists map[string][]string = map[string][]string{}
+
+	// For Healthz
+	startTime time.Time
+	delay     float64 = 10 + 5*rand.Float64()
 )
 
 type Input struct {
@@ -46,27 +51,88 @@ type Tone struct {
 	ToneName string `json:"tone_name"`
 }
 
+func GetList(key string) ([]string, error) {
+	// Using Redis
+	if masterPool != nil {
+		list := simpleredis.NewList(slavePool, key)
+		return list.GetAll()
+	}
+
+	return lists[key], nil
+}
+
+func AppendToList(item string, key string) ([]string, error) {
+	var err error
+	items := []string{}
+
+	// Using Redis
+	if masterPool != nil {
+		list := simpleredis.NewList(masterPool, key)
+		list.Add(item)
+		items, err = list.GetAll()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		items = lists[key]
+		items = append(items, item)
+		lists[key] = items
+	}
+	return items, nil
+}
+
 func ListRangeHandler(rw http.ResponseWriter, req *http.Request) {
-	key := mux.Vars(req)["key"]
-	list := simpleredis.NewList(slavePool, key)
-	members := HandleError(list.GetAll()).([]string)
-	membersJSON := HandleError(json.MarshalIndent(members, "", "  ")).([]byte)
-	rw.Write(membersJSON)
+	var data []byte
+
+	items, err := GetList(mux.Vars(req)["key"])
+	if err != nil {
+		data = []byte("Error getting list: " + err.Error() + "\n")
+	} else {
+		if data, err = json.MarshalIndent(items, "", ""); err != nil {
+			data = []byte("Error marhsalling list: " + err.Error() + "\n")
+		}
+	}
+
+	rw.Write(data)
 }
 
 func ListPushHandler(rw http.ResponseWriter, req *http.Request) {
+	var data []byte
+
 	key := mux.Vars(req)["key"]
 	value := mux.Vars(req)["value"]
-	list := simpleredis.NewList(masterPool, key)
 
-	// before push, let's get the tone of the value
-	HandleError(nil, list.Add(value+" : "+getPrimaryTone(value)))
-	ListRangeHandler(rw, req)
+	// Add in the "tone" analyzer results
+	value += " : " + getPrimaryTone(value)
+
+	items, err := AppendToList(value, key)
+
+	if err != nil {
+		data = []byte("Error adding to list: " + err.Error() + "\n")
+	} else {
+		if data, err = json.MarshalIndent(items, "", ""); err != nil {
+			data = []byte("Error marshalling list: " + err.Error() + "\n")
+		}
+
+	}
+	rw.Write(data)
 }
 
 func InfoHandler(rw http.ResponseWriter, req *http.Request) {
-	info := HandleError(masterPool.Get(0).Do("INFO")).([]byte)
-	rw.Write(info)
+	info := ""
+
+	// Using Redis
+	if masterPool != nil {
+		i, err := masterPool.Get(0).Do("INFO")
+		if err != nil {
+			info = "Error getting DB info: " + err.Error()
+		} else {
+			info = string(i.([]byte))
+		}
+	} else {
+		info = "In-memory datastore (not redis)"
+	}
+	rw.Write([]byte(info + "\n"))
 }
 
 func EnvHandler(rw http.ResponseWriter, req *http.Request) {
@@ -78,14 +144,19 @@ func EnvHandler(rw http.ResponseWriter, req *http.Request) {
 		environment[key] = val
 	}
 
-	envJSON := HandleError(json.MarshalIndent(environment, "", "  ")).([]byte)
-	rw.Write(envJSON)
+	data, err := json.MarshalIndent(environment, "", "")
+	if err != nil {
+		data = []byte("Error marshalling env vars: " + err.Error())
+	}
+
+	rw.Write(data)
 }
 
 func HelloHandler(rw http.ResponseWriter, req *http.Request) {
-	hostName := os.Getenv("HOSTNAME")
-	reply := "Hello world from " + hostName + "  ! Great job getting the second stage up and running!\n"
-	rw.Write([]byte(reply))
+	rw.Write([]byte("Hello from guestbook. " +
+		"Your app is up! (Hostname: " +
+		os.Getenv("HOSTNAME") +
+		")\n"))
 }
 
 func HealthzHandler(rw http.ResponseWriter, req *http.Request) {
@@ -96,16 +167,7 @@ func HealthzHandler(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func HandleError(result interface{}, err error) (r interface{}) {
-	if err != nil {
-		panic(err)
-	}
-	return result
-}
-
-/*
-Note: This function will not work until we hook-up the Tone Analyzer service
-*/
+// Note: This function will not work until we hook-up the Tone Analyzer service
 func getPrimaryTone(value string) (tone string) {
 	u := Input{InputText: value}
 	b := new(bytes.Buffer)
@@ -113,8 +175,7 @@ func getPrimaryTone(value string) (tone string) {
 
 	res, err := http.Post("http://analyzer:80/tone", "application/json", b)
 	if err != nil {
-		fmt.Println("error occurred talking to the analyzer service", err)
-		return ""
+		return "Error talking to tone service: " + err.Error()
 	}
 	body := []Tone{}
 	json.NewDecoder(res.Body).Decode(&body)
@@ -142,10 +203,13 @@ func getPrimaryTone(value string) (tone string) {
 }
 
 func main() {
-	masterPool = simpleredis.NewConnectionPoolHost("redis-master:6379")
-	defer masterPool.Close()
-	slavePool = simpleredis.NewConnectionPoolHost("redis-slave:6379")
-	defer slavePool.Close()
+	// When using Redis, setup our DB connections
+	if os.Getenv("REDIS_MASTER_PORT") != "" {
+		masterPool = simpleredis.NewConnectionPoolHost("redis-master:6379")
+		defer masterPool.Close()
+		slavePool = simpleredis.NewConnectionPoolHost("redis-slave:6379")
+		defer slavePool.Close()
+	}
 
 	startTime = time.Now()
 

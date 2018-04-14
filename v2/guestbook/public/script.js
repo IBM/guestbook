@@ -19,6 +19,7 @@ $(document).ready(function() {
     if (entryValue.length > 0) {
       entriesElement.append("<p>...</p>");
       $.getJSON("rpush/guestbook/" + entryValue, appendGuestbookEntries);
+	  entryContentElement.val("")
     }
     return false;
   }
