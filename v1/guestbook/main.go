@@ -28,38 +28,97 @@ import (
 )
 
 var (
+	// For when Redis is used
 	masterPool *simpleredis.ConnectionPool
 	slavePool  *simpleredis.ConnectionPool
+
+	// For when Redis is not used, we just keep it in memory
+	lists map[string][]string = map[string][]string{}
 )
 
 type Input struct {
 	InputText string `json:"input_text"`
 }
 
-type Tone struct {
-	ToneName string `json:"tone_name"`
+func GetList(key string) ([]string, error) {
+	// Using Redis
+	if masterPool != nil {
+		list := simpleredis.NewList(slavePool, key)
+		return list.GetAll()
+	}
+
+	return lists[key], nil
+}
+
+func AppendToList(item string, key string) ([]string, error) {
+	var err error
+	items := []string{}
+
+	// Using Redis
+	if masterPool != nil {
+		list := simpleredis.NewList(masterPool, key)
+		list.Add(item)
+		items, err = list.GetAll()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		items = lists[key]
+		items = append(items, item)
+		lists[key] = items
+	}
+	return items, nil
 }
 
 func ListRangeHandler(rw http.ResponseWriter, req *http.Request) {
-	key := mux.Vars(req)["key"]
-	list := simpleredis.NewList(slavePool, key)
-	members := HandleError(list.GetAll()).([]string)
-	membersJSON := HandleError(json.MarshalIndent(members, "", "  ")).([]byte)
-	rw.Write(membersJSON)
+	var data []byte
+
+	items, err := GetList(mux.Vars(req)["key"])
+	if err != nil {
+		data = []byte("Error getting list: " + err.Error() + "\n")
+	} else {
+		if data, err = json.MarshalIndent(items, "", ""); err != nil {
+			data = []byte("Error marhsalling list: " + err.Error() + "\n")
+		}
+	}
+
+	rw.Write(data)
 }
 
 func ListPushHandler(rw http.ResponseWriter, req *http.Request) {
+	var data []byte
+
 	key := mux.Vars(req)["key"]
 	value := mux.Vars(req)["value"]
-	list := simpleredis.NewList(masterPool, key)
 
-	HandleError(nil, list.Add(value))
-	ListRangeHandler(rw, req)
+	items, err := AppendToList(value, key)
+
+	if err != nil {
+		data = []byte("Error adding to list: " + err.Error() + "\n")
+	} else {
+		if data, err = json.MarshalIndent(items, "", ""); err != nil {
+			data = []byte("Error marshalling list: " + err.Error() + "\n")
+		}
+
+	}
+	rw.Write(data)
 }
 
 func InfoHandler(rw http.ResponseWriter, req *http.Request) {
-	info := HandleError(masterPool.Get(0).Do("INFO")).([]byte)
-	rw.Write(info)
+	info := ""
+
+	// Using Redis
+	if masterPool != nil {
+		i, err := masterPool.Get(0).Do("INFO")
+		if err != nil {
+			info = "Error getting DB info: " + err.Error()
+		} else {
+			info = string(i.([]byte))
+		}
+	} else {
+		info = "In-memory datastore (not redis)"
+	}
+	rw.Write([]byte(info + "\n"))
 }
 
 func EnvHandler(rw http.ResponseWriter, req *http.Request) {
@@ -71,27 +130,29 @@ func EnvHandler(rw http.ResponseWriter, req *http.Request) {
 		environment[key] = val
 	}
 
-	envJSON := HandleError(json.MarshalIndent(environment, "", "  ")).([]byte)
-	rw.Write(envJSON)
+	data, err := json.MarshalIndent(environment, "", "")
+	if err != nil {
+		data = []byte("Error marshalling env vars: " + err.Error())
+	}
+
+	rw.Write(data)
 }
 
 func HelloHandler(rw http.ResponseWriter, req *http.Request) {
-	reply := "Hello world from guestbook, Your app is up and running in a cluster!\n"
-	rw.Write([]byte(reply))
-}
-
-func HandleError(result interface{}, err error) (r interface{}) {
-	if err != nil {
-		panic(err)
-	}
-	return result
+	rw.Write([]byte("Hello from guestbook. " +
+		"Your app is up! (Hostname: " +
+		os.Getenv("HOSTNAME") +
+		")\n"))
 }
 
 func main() {
-	masterPool = simpleredis.NewConnectionPoolHost("redis-master:6379")
-	defer masterPool.Close()
-	slavePool = simpleredis.NewConnectionPoolHost("redis-slave:6379")
-	defer slavePool.Close()
+	// When using Redis, setup our DB connections
+	if os.Getenv("REDIS_MASTER_PORT") != "" {
+		masterPool = simpleredis.NewConnectionPoolHost("redis-master:6379")
+		defer masterPool.Close()
+		slavePool = simpleredis.NewConnectionPoolHost("redis-slave:6379")
+		defer slavePool.Close()
+	}
 
 	r := mux.NewRouter()
 	r.Path("/lrange/{key}").Methods("GET").HandlerFunc(ListRangeHandler)
