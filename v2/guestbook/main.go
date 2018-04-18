@@ -102,8 +102,11 @@ func ListPushHandler(rw http.ResponseWriter, req *http.Request) {
 	key := mux.Vars(req)["key"]
 	value := mux.Vars(req)["value"]
 
+	// propogate headers to analyzer service
+	headers := getForwardHeaders(req.Header)
+
 	// Add in the "tone" analyzer results
-	value += " : " + getPrimaryTone(value)
+	value += " : " + getPrimaryTone(value, headers)
 
 	items, err := AppendToList(value, key)
 
@@ -168,15 +171,30 @@ func HealthzHandler(rw http.ResponseWriter, req *http.Request) {
 }
 
 // Note: This function will not work until we hook-up the Tone Analyzer service
-func getPrimaryTone(value string) (tone string) {
+func getPrimaryTone(value string, headers http.Header) (tone string) {
 	u := Input{InputText: value}
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(u)
 
-	res, err := http.Post("http://analyzer:80/tone", "application/json", b)
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", "http://analyzer:80/tone", b)
 	if err != nil {
-		return "Error talking to tone service: " + err.Error()
+		return "Error talking to tone analyzer service: " + err.Error()
 	}
+	req.Header.Add("Content-Type", "application/json")
+	// add headers
+	for k := range headers {
+		req.Header.Add(k, headers.Get(k))
+	}
+	// print out headers for debug
+	// fmt.Printf("getPrimaryTone headers %v", req.Header)
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "Error detecting tone: " + err.Error()
+	}
+	defer res.Body.Close()
+
 	body := []Tone{}
 	json.NewDecoder(res.Body).Decode(&body)
 	if len(body) > 0 {
@@ -200,6 +218,27 @@ func getPrimaryTone(value string) (tone string) {
 	}
 
 	return "No Tone Detected"
+}
+
+// return the needed header for distributed tracing
+func getForwardHeaders(h http.Header) (headers http.Header) {
+	incomingHeaders := []string{
+		"x-request-id",
+		"x-b3-traceid",
+		"x-b3-spanid",
+		"x-b3-parentspanid",
+		"x-b3-sampled",
+		"x-b3-flags",
+		"x-ot-span-context"}
+
+	header := make(http.Header, len(incomingHeaders))
+	for _, element := range incomingHeaders {
+		val := h.Get(element)
+		if val != "" {
+			header.Set(element, val)
+		}
+	}
+	return header
 }
 
 func main() {
