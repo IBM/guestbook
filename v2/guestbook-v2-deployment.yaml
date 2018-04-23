@@ -1,0 +1,30 @@
+apiVersion: extensions/v1beta1
+kind: Deployment 
+metadata:
+  name: guestbook-v2
+  labels:
+    app: guestbook-v2
+    version: "2.0"
+spec:
+  selector:
+    matchLabels:
+      app: guestbook
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: guestbook
+        version: "2.0"
+    spec:
+      containers:
+      - name: guestbook
+        image: linsun/guestbook:v2
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        env:
+        ports:
+        - containerPort: 3000
+          name: http
