@@ -42,11 +42,16 @@ type Input struct {
 
 func GetList(key string) ([]string, error) {
 	// Using Redis
-	if masterPool != nil {
+	if slavePool != nil {
 		list := simpleredis.NewList(slavePool, key)
 		return list.GetAll()
 	}
-
+	// if the slave doesn't exist, read from the master
+	if masterPool != nil {
+		list := simpleredis.NewList(masterPool, key)
+		return list.GetAll()
+	}
+	// if neither exist, we're probably in "in-memory" mode
 	return lists[key], nil
 }
 
