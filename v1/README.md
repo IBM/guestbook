@@ -26,23 +26,26 @@ All of the commands specified should be run from this directory.
 
 Use the `redis-master-deployment.yaml` file to create a [replication controller](https://kubernetes.io/docs/concepts/workloads/controllers/replicationcontroller/) and Redis master [pod](https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/). The pod runs a Redis key-value server in a container. Using a replication controller is the preferred way to launch long-running pods, even for 1 replica, so that the pod benefits from the self-healing mechanism in Kubernetes (keeps the pods alive).
 
-1. Use the [redis-master-deployment.yaml](redis-master-deployment.yaml) file to create the Redis master replication controller in your Kubernetes cluster by running the `kubectl create -f` *`filename`* command:
+1. Use the [redis-master-deployment.yaml](redis-master-deployment.yaml) file to create the Redis master deployment in your Kubernetes cluster by running the `kubectl create -f` *`filename`* command:
 
     ```console
     $ kubectl create -f redis-master-deployment.yaml
-    replicationcontrollers/redis-master
+    deployment "redis-master" created
     ```
 
-2. To verify that the redis-master controller is up, list the replication controllers you created in the cluster with the `kubectl get rc` command(if you don't specify a `--namespace`, the `default` namespace will be used. The same below):
+2. To verify that the redis-master controller is up, list the deployment and replicaset you created in the cluster with the `kubectl get` command(if you don't specify a `--namespace`, the `default` namespace will be used. The same below):
 
     ```console
-    $ kubectl get rc
-    CONTROLLER             CONTAINER(S)            IMAGE(S)                    SELECTOR                         REPLICAS
-    redis-master           redis-master            gurpartap/redis             app=redis,role=master            1
-    ...
+    $ kubectl get deploy
+    NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+    redis-master   1         1         1            1           10m
+
+    $ kubectl get replicaset
+    NAME                      DESIRED   CURRENT   READY     AGE
+    redis-master-6767cf65c7   1         1         1         11m
     ```
 
-    Result: The replication controller then creates the single Redis master pod.
+    Result: The deployment creates the replicaset, which then creates the single Redis master pod.
 
 3. To verify that the redis-master pod is running, list the pods you created in cluster with the `kubectl get pods` command:
 
@@ -88,23 +91,28 @@ The Redis master we created earlier is a single pod (REPLICAS = 1), while the Re
 
     ```console
     $ kubectl create -f redis-slave-deployment.yaml
-    replicationcontrollers/redis-slave
+    deployment.apps "redis-slave" created
     ```
 
 2. To verify that the redis-slave controller is running, run the `kubectl get rc` command:
 
     ```console
-    $ kubectl get rc
-    CONTROLLER              CONTAINER(S)            IMAGE(S)                         SELECTOR                    REPLICAS
-    redis-master            redis-master            redis                            app=redis,role=master       1
-    redis-slave             redis-slave             kubernetes/redis-slave:v2        app=redis,role=slave        2
-    ...
+    $ kubectl get deploy
+    NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+    redis-master   1         1         1            1           23m
+    redis-slave    2         2         2            0           15s
+
+    $ kubectl get rs
+    NAME                      DESIRED   CURRENT   READY     AGE
+    redis-master-6767cf65c7   1         1         1         23m
+    redis-slave-564b7bd5d9    2         2         2         30s
+
     ```
 
-    Result: The replication controller creates and configures the Redis slave pods through the redis-master service (name:port pair, in our example that's `redis-master:6379`).
+    Result: The deployment creates the replicaset, which then creates configures the Redis slave pods through the redis-master service (name:port pair, in our example that's `redis-master:6767cf65c7`).
 
     Example:
-    The Redis slaves get started by the replication controller with the following command:
+    The Redis slaves get started by the deployment/replicaset with the following command:
 
     ```console
     redis-server --slaveof redis-master 6379
@@ -115,7 +123,7 @@ The Redis master we created earlier is a single pod (REPLICAS = 1), while the Re
     ```console
     $ kubectl get pods
     NAME                          READY     STATUS    RESTARTS   AGE
-    redis-master-xx4uv            1/1       Running   0          18m
+    redis-master-xx4uv            1/1       Running   0          25m
     redis-slave-b6wj4             1/1       Running   0          1m
     redis-slave-iai40             1/1       Running   0          1m
     ...
@@ -131,7 +139,7 @@ Just like the master, we want to have a service to proxy connections to the read
 
     ```console
     $ kubectl create -f redis-slave-service.yaml
-    services/redis-slave
+    service "redis-slave" created
     ```
 
 2. To verify that the redis-slave service is up, list the services you created in the cluster with the `kubectl get services` command:
@@ -156,20 +164,19 @@ This is a simple Go `net/http` ([negroni](https://github.com/codegangsta/negroni
 
     ```console
     $ kubectl create -f guestbook-deployment.yaml
-    replicationcontrollers/guestbook
+    deployment.apps "guestbook" created
     ```
 
  Tip: If you want to modify the guestbook code it can be found in the `guestbook` directory, along with its Makefile. If you have pushed your custom image be sure to update the `image` property accordingly in the guestbook-deployment.yaml.
 
-2. To verify that the guestbook replication controller is running, run the `kubectl get rc` command:
+2. To verify that the guestbook deployment is running, run the `kubectl get deploy` command:
 
     ```console
-    $ kubectl get rc
-    CONTROLLER            CONTAINER(S)         IMAGE(S)                               SELECTOR                  REPLICAS
-    guestbook             guestbook            ibmcom/guestbook:v1                    app=guestbook             3
-    redis-master          redis-master         redis                                  app=redis,role=master     1
-    redis-slave           redis-slave          kubernetes/redis-slave:v2              app=redis,role=slave      2
-    ...
+    $ kubectl get deploy
+    NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+    guestbook      3         3         3            3           38s
+    redis-master   1         1         1            1           27m
+    redis-slave    2         2         2            2           4m
     ```
 
 3. To verify that the guestbook pods are running (it might take up to thirty seconds to create the pods), list the pods you created in cluster with the `kubectl get pods` command:
