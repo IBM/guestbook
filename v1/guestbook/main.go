@@ -44,13 +44,19 @@ func GetList(key string) ([]string, error) {
 	// Using Redis
 	if slavePool != nil {
 		list := simpleredis.NewList(slavePool, key)
-		return list.GetAll()
+		if result, err := list.GetAll(); err == nil {
+			return result, err
+		}
+		// if we can't talk to the slave then assume its not running yet
+		// so just try to use the master instead
 	}
+
 	// if the slave doesn't exist, read from the master
 	if masterPool != nil {
 		list := simpleredis.NewList(masterPool, key)
 		return list.GetAll()
 	}
+
 	// if neither exist, we're probably in "in-memory" mode
 	return lists[key], nil
 }

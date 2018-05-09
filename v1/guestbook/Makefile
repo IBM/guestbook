@@ -14,7 +14,7 @@ build:
 	docker build --pull -t "${REGISTRY}/guestbook:${VERSION}" .
 
 # push the image to an registry
-push:
+push: build
 	docker push ${REGISTRY}/guestbook:${VERSION}
 
 # remove previous images and containers
