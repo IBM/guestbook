@@ -156,10 +156,26 @@ func HelloHandler(rw http.ResponseWriter, req *http.Request) {
 		")\n"))
 }
 
+// Support multiple URL schemes for different use cases
+func findRedisURL() string {
+	host := os.Getenv("REDIS_MASTER_SERVICE_HOST")
+	port := os.Getenv("REDIS_MASTER_SERVICE_PORT")
+	password := os.Getenv("REDIS_MASTER_SERVICE_PASSWORD")
+	master_port := os.Getenv("REDIS_MASTER_PORT")
+
+	if host != "" && port != "" && password != "" {
+		return password + "@" + host + ":" + port
+	} else if master_port != "" {
+		return "redis-master:6379"
+	}
+	return ""
+}
+
 func main() {
 	// When using Redis, setup our DB connections
-	if os.Getenv("REDIS_MASTER_PORT") != "" {
-		masterPool = simpleredis.NewConnectionPoolHost("redis-master:6379")
+	url := findRedisURL()
+	if url != "" {
+		masterPool = simpleredis.NewConnectionPoolHost(url)
 		defer masterPool.Close()
 		slavePool = simpleredis.NewConnectionPoolHost("redis-slave:6379")
 		defer slavePool.Close()
