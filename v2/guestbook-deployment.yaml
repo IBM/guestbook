@@ -3,17 +3,17 @@ kind: Deployment
 metadata:
   name: guestbook-v2
   labels:
-    app: guestbook-v2
+    app: guestbook
     version: "2.0"
 spec:
   selector:
     matchLabels:
-      app: guestbook-v2
+      app: guestbook
   replicas: 3
   template:
     metadata:
       labels:
-        app: guestbook-v2
+        app: guestbook
         version: "2.0"
     spec:
       containers:
@@ -26,4 +26,3 @@ spec:
         ports:
         - name: http
           containerPort: 3000
-

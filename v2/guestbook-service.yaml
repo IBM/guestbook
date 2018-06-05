@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: guestbook
   labels:
-    app: guestbook-v2
+    app: guestbook
 spec:
   # comment or delete the following line if you want to use a LoadBalancer
   # type: NodePort
@@ -15,4 +15,4 @@ spec:
     targetPort: 3000
     name: http
   selector:
-    app: guestbook-v2
+    app: guestbook
