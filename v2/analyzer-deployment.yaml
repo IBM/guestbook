@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment 
+kind: Deployment
 metadata:
   name: analyzer
   labels:
@@ -27,6 +27,8 @@ spec:
         #  value: ...
         #- name: VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_PASSWORD
         #  value: ...
+        - name: USE_HTTPS
+          value: True
         ports:
         - containerPort: 80
           name: http
