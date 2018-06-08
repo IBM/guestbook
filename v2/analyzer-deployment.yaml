@@ -30,5 +30,5 @@ spec:
         - name: USE_HTTPS
           value: True
         ports:
-        - containerPort: 80
+        - containerPort: 5000
           name: http
