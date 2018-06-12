@@ -15,7 +15,7 @@ build:
 	REGISTRY=${REGISTRY} make -C v2/analyzer build
 
 # push the image to an registry
-push: build
+push:
 	REGISTRY=${REGISTRY} make -C v1/guestbook push
 	REGISTRY=${REGISTRY} make -C v2/guestbook push
 	REGISTRY=${REGISTRY} make -C v2/analyzer push
