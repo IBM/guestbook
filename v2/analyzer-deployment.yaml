@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: analyzer
-        image: ibmcom/analyzer:v1
+        image: ibmcom/analyzer:v1.1
         imagePullPolicy: Always
         resources:
           requests:
