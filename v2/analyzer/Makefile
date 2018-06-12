@@ -2,7 +2,7 @@
 # Usage:
 #   [VERSION=v1] [REGISTRY="docker.io/ibmcom"] make build
 
-VERSION?=v1
+VERSION?=v1.1
 REGISTRY?=docker.io/ibmcom
 
 all: build
