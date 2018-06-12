@@ -9,7 +9,8 @@ all: build
 
 release: clean build push clean
 
-# builds a docker image that builds the app and packages it into a minimal docker image
+# Builds a docker image that builds the app and packages it into a
+# minimal docker image
 build:
 	docker build --pull -t "${REGISTRY}/analyzer:${VERSION}" .
 
