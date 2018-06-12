@@ -23,12 +23,12 @@ spec:
             cpu: 100m
             memory: 100Mi
         env:
-        - name: TONE_ANALYZER_URL
-          value: "gateway-wdc.watsonplatform.net/tone-analyzer/api"
-        #- name: TONE_ANALYZER_APIKEY
-        #  value: <REPLACE>
+        #- name: VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_USERNAME
+        #  value: ...
+        #- name: VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_PASSWORD
+        #  value: ...
         - name: USE_HTTPS
-          value: "True"
+          value: True
         ports:
         - containerPort: 5000
           name: http
