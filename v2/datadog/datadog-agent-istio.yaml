@@ -68,7 +68,7 @@ spec:
         - hostPath:
             path: /sys/fs/cgroup
           name: cgroups
-	- name: dd-agent-config
+        - name: dd-agent-config
           configMap:
             name: dd-agent-config
             items:
