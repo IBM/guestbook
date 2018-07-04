@@ -4,7 +4,7 @@ metadata:
   name: dd-agent-config
   namespace: default
 data:
-  http-config: |-
+  istio-config: |-
     init_config:
     instances:
     - istio_mesh_endpoint: http://localhost:42422/metrics
