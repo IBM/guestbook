@@ -45,3 +45,14 @@ rules:
   - nodes/proxy
   verbs:
   - get
+- apiGroups:
+  - "certificates.k8s.io"
+  resources:
+  - "certificatesigningrequests"
+  - "certificatesigningrequests/approval"
+  - "certificatesigningrequests/status"
+  verbs:
+  - update
+  - create
+  - get
+  - delete

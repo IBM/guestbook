@@ -10,10 +10,38 @@ spec:
       name: datadog-agent
     spec:
       serviceAccountName: datadog-agent
-      containers:
-      - image: datadog/agent:latest
+      initContainers:
+      - name: kube-csr
+        image: quay.io/julienbalestra/kube-csr:0.3.0
         imagePullPolicy: Always
-        name: datadog-agent
+        command:
+        - /usr/local/bin/kube-csr
+        - issue
+        - $(MY_POD_NAME)
+        - --csr-name=$(MY_POD_NAME)-$(MY_POD_UID)
+        - --generate
+        - --submit
+        - --approve
+        - --fetch
+        - --private-key-file=/etc/certs/datadog-agent.private_key
+        - --csr-file=/etc/certs/datadog-agent.csr
+        - --certificate-file=/etc/certs/datadog-agent.certificate
+        env:
+        - name: MY_POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        volumeMounts:
+        - name: certs
+          mountPath: /etc/certs
+      containers:
+      - name: datadog-agent
+        image: datadog/agent:latest
+        imagePullPolicy: Always
         ports:
           - containerPort: 8125
             name: dogstatsdport
@@ -34,6 +62,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+          - name: DD_KUBELET_CLIENT_CRT
+            value: "/etc/certs/datadog-agent.certificate"
+          - name: DD_KUBELET_CLIENT_KEY
+            value: "/etc/certs/datadog-agent.private_key"
+          - name: DD_KUBELET_TLS_VERIFY
+            value: "false"
         resources:
           requests:
             memory: "256Mi"
@@ -49,6 +83,9 @@ spec:
             readOnly: true
           - name: cgroups
             mountPath: /host/sys/fs/cgroup
+            readOnly: true
+          - name: certs
+            mountPath: /etc/certs
             readOnly: true
         livenessProbe:
           exec:
@@ -66,3 +103,5 @@ spec:
         - hostPath:
             path: /sys/fs/cgroup
           name: cgroups
+        - emptyDir:
+          name: certs
