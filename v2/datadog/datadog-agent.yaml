@@ -1,0 +1,107 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: datadog-agent
+spec:
+  template:
+    metadata:
+      labels:
+        app: datadog-agent
+      name: datadog-agent
+    spec:
+      serviceAccountName: datadog-agent
+      initContainers:
+      - name: kube-csr
+        image: quay.io/julienbalestra/kube-csr:0.3.0
+        imagePullPolicy: Always
+        command:
+        - /usr/local/bin/kube-csr
+        - issue
+        - $(MY_POD_NAME)
+        - --csr-name=$(MY_POD_NAME)-$(MY_POD_UID)
+        - --generate
+        - --submit
+        - --approve
+        - --fetch
+        - --private-key-file=/etc/certs/datadog-agent.private_key
+        - --csr-file=/etc/certs/datadog-agent.csr
+        - --certificate-file=/etc/certs/datadog-agent.certificate
+        env:
+        - name: MY_POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        volumeMounts:
+        - name: certs
+          mountPath: /etc/certs
+      containers:
+      - name: datadog-agent
+        image: datadog/agent:latest
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 8125
+            name: dogstatsdport
+            protocol: UDP
+          - containerPort: 8126
+            name: traceport
+            protocol: TCP
+        env:
+          - name: DD_API_KEY
+            value: "<YOUR_API_KEY>"
+          - name: DD_COLLECT_KUBERNETES_EVENTS
+            value: "true"
+          - name: DD_LEADER_ELECTION
+            value: "true"
+          - name: KUBERNETES
+            value: "yes"
+          - name: DD_KUBERNETES_KUBELET_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          - name: DD_KUBELET_CLIENT_CRT
+            value: "/etc/certs/datadog-agent.certificate"
+          - name: DD_KUBELET_CLIENT_KEY
+            value: "/etc/certs/datadog-agent.private_key"
+          - name: DD_KUBELET_TLS_VERIFY
+            value: "false"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        volumeMounts:
+          - name: dockersocket
+            mountPath: /var/run/docker.sock
+          - name: procdir
+            mountPath: /host/proc
+            readOnly: true
+          - name: cgroups
+            mountPath: /host/sys/fs/cgroup
+            readOnly: true
+          - name: certs
+            mountPath: /etc/certs
+            readOnly: true
+        livenessProbe:
+          exec:
+            command:
+            - ./probe.sh
+          initialDelaySeconds: 15
+          periodSeconds: 5
+      volumes:
+        - hostPath:
+            path: /var/run/docker.sock
+          name: dockersocket
+        - hostPath:
+            path: /proc
+          name: procdir
+        - hostPath:
+            path: /sys/fs/cgroup
+          name: cgroups
+        - emptyDir:
+          name: certs
