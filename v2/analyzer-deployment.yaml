@@ -24,9 +24,9 @@ spec:
             memory: 100Mi
         env:
         #- name: VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_USERNAME
-        #  value: ...
+        #  value: "..."
         #- name: VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_PASSWORD
-        #  value: ...
+        #  value: "..."
         - name: USE_HTTPS
           value: 'True'
         ports:
