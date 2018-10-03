@@ -28,7 +28,7 @@ spec:
         #- name: VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_PASSWORD
         #  value: "..."
         - name: USE_HTTPS
-          value: "True"
+          value: 'True'
         ports:
         - containerPort: 5000
           name: http
