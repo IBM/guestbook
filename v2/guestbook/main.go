@@ -190,7 +190,8 @@ func getPrimaryTone(value string, headers http.Header) (tone string) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", "http://analyzer:80/tone", b)
 	if err != nil {
-		return "Error talking to tone analyzer service: " + err.Error()
+		return getDummyTone(value)
+		//return "Error talking to tone analyzer service: " + err.Error()
 	}
 	req.Header.Add("Content-Type", "application/json")
 	// add headers
@@ -202,7 +203,9 @@ func getPrimaryTone(value string, headers http.Header) (tone string) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return "Error detecting tone: " + err.Error()
+		//means waston service is not available, so call the built in dummy hard code one to demonstrate
+		return getDummyTone(value)
+		//return "Error detecting tone: " + err.Error()
 	}
 	defer res.Body.Close()
 
@@ -267,6 +270,24 @@ func findRedisURL() string {
 	return ""
 }
 
+//getDummyTone is a dummy version for the tone anylyzer
+func getDummyTone(value string) string {
+	if strings.HasPrefix(value, "s") || strings.HasPrefix(value, "h") {
+		return value + " (✿◠‿◠)"
+	}
+	if strings.HasPrefix(value, "t") || strings.HasPrefix(value, "c") {
+		return value + " （︶︿︶）"
+	}
+	if strings.HasPrefix(value, "f") || strings.HasPrefix(value, "s") {
+		return value + " (ง’̀-‘́)ง"
+	}
+	if strings.HasPrefix(value, "a") || strings.HasPrefix(value, "b") {
+		return value + " (ಠ_ಠ)"
+	}
+
+	return "No Tone Detected"
+
+}
 func main() {
 	// When using Redis, setup our DB connections
 	url := findRedisURL()
