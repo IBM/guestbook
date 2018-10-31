@@ -16,17 +16,19 @@ spec:
     spec:
       containers:
       - name: analyzer
-        image: ibmcom/analyzer:v1
+        image: ibmcom/analyzer:v1.1
         imagePullPolicy: Always
         resources:
           requests:
             cpu: 100m
             memory: 100Mi
         env:
-        #- name: VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_USERNAME
-        #  value: "..."
-        #- name: VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_PASSWORD
-        #  value: "..."
+        - name: VCAP_SERVICES_TONE_ANALYZER_API_KEY
+          value:
+        - name : VCAP_SERVICES_TONE_ANALYZER_TOKEN_ADDRESS
+          value: "iam.bluemix.net/identity/token"
+        - name: VCAP_SERVICES_TONE_ANALYZER_SERVICE_API
+          value:
         - name: USE_HTTPS
           value: "True"
         ports:
