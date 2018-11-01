@@ -1,8 +1,11 @@
-import os, json, requests
+import os, json, requests, urllib
+import ssl
 from flask import Flask, Response, abort, request
 from datetime import datetime
+import time
 import logging
 from logging import StreamHandler
+from retry import retry
 
 # Define the base logger
 logging.getLogger("analyzer").setLevel(logging.DEBUG)
@@ -16,16 +19,33 @@ log.addHandler(stream_handler)
 app = Flask(__name__, static_url_path='')
 app.config['PROPAGATE_EXCEPTIONS'] = True
 
-# other global variables
-tone_analyzer_ep = None
+# Define global variables
+
+global tone_analyzer_ep
+
+global identity_token_url
+
+global api_key
+
+global refresh_token
+
+global access_token
+
+global is_refresh
+
 
 
 def analyze_tone(input_text):
     log.info("tone_analyzer_ep is: %s ", tone_analyzer_ep)
 
-    r = requests.post(tone_analyzer_ep, headers={'Content-type': 'text/plain'}, data=input_text)
+    headers = {
+         'Content-Type': 'text/plain',
+     'Authorization': 'Bearer ' + access_token,
+    }
+
+    r = requests.post(tone_analyzer_ep, headers=headers, data=input_text)
     log.info("tone_analyzer_ep response code is: %s ", r.status_code)
-    if r.status_code != 200: 
+    if r.status_code != 200:
         log.error("FAILED analyze tone: '%s', msg: '%s'", input_text, r.text)
         return None
     log.info("return %s ", r.json())
@@ -52,22 +72,125 @@ def tone():
     return (json.dumps(tone_doc['document_tone']['tones']), 200)
 
 
-if __name__ == '__main__':
-    PORT = os.getenv('VCAP_APP_PORT', '5000')
-    vcap_services = os.getenv('VCAP_SERVICES')
-    id = os.getenv('VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_USERNAME')
-    pwd = os.getenv('VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_PASSWORD')
-    url = os.getenv('VCAP_SERVICES_TONE_ANALYZER_0_CREDENTIALS_URL')
-    usehttps = os.getenv('USE_HTTPS')
-    # id = "7a7620bc-c378-4760-986a-1451fb9dacc9"
-    # pwd = "xxxx"
-    if not url:
-        url = "gateway.watsonplatform.net/tone-analyzer/api"
-    scheme = 'http'
-    if os.getenv('USE_HTTPS'):
-      scheme = 'https'
-    # https://gateway.watsonplatform.net/tone-analyzer/api/v3/tone?version=2017-09-21&sentences=false
-    tone_analyzer_ep = "" + scheme + "://" + id + ":" + pwd + "@" + url + "/v3/tone?version=2017-09-21&sentences=false"
+'''
+POST identity/token method to generate an IAM access token by passing an API key
+'''
+@retry(requests.exceptions.SSLError, delay=2, tries=5)
+def generate_tokens(refresh):
 
-    log.info("Starting analyzer tone_analyzer_ep: %s ", tone_analyzer_ep)
-    app.run(host='0.0.0.0', port=int(PORT))
+	api_key = os.getenv('VCAP_SERVICES_TONE_ANALYZER_API_KEY')
+
+	is_refresh = refresh
+
+	params = None
+
+	if api_key:
+		log.info("api key is there.")
+	else :
+		log.error("VCAP_SERVICES_TONE_ANALYZER_API_KEY  not set")
+
+	if refresh:
+		headers = {
+			'Authorization': 'Basic Yng6Yng=',
+		}
+		params = {
+			'grant_type': 'refresh_token',
+			'refresh_token': refresh_token,
+		}
+
+	else:
+		headers = {
+			'Content-Type': 'application/x-www-form-urlencoded',
+			'Accept': 'application/json',
+		}
+
+		params = {
+			'grant_type': 'urn:ibm:params:oauth:grant-type:apikey',
+			'apikey': api_key,
+		}
+
+	params = urllib.urlencode(params)
+
+	log.debug("calling identity token method : %s ", params)
+
+	r = requests.post(url=identity_token_url, headers=headers, params=params)
+
+	log.info("Identity tokens response code is: %s ", r.status_code)
+
+	if r.status_code == 200 :
+
+		access_token = r.json()['access_token']
+
+		refresh_token = r.json()['refresh_token']
+
+		token_expiration = r.json()['expiration']
+
+
+		if access_token:
+			log.info("Identity access token generated")
+
+		if refresh_token:
+			log.info("Identity refresh token generated")
+
+		log.info("Identity tokens expiration: %s ", token_expiration)
+
+		expire_time = datetime.utcfromtimestamp(float(token_expiration))
+		log.info("Identity access token would expire at around: %s ", expire_time)
+
+		# refresh access_token and token_expiration to make sure api call works
+		log.info("current time : %s ", datetime.utcnow())
+
+
+		while ( datetime.utcnow() < expire_time ) :
+			time.sleep(60)
+		else :
+			log.info("Identity access and refresh tokens would be refreshed")
+			generate_tokens(is_refresh)
+			log.info("Identity access and refresh tokens have been refreshed")
+	else :
+
+		log.error("json : %s ", r.json())
+
+
+if __name__ == '__main__':
+
+    PORT = os.getenv('VCAP_APP_PORT', '5000')
+
+    vcap_services = os.getenv('VCAP_SERVICES')
+
+    api_url = os.getenv('VCAP_SERVICES_TONE_ANALYZER_SERVICE_API')
+
+    usehttps = os.getenv('USE_HTTPS')
+
+    token_url = os.getenv('VCAP_SERVICES_TONE_ANALYZER_TOKEN_ADDRESS')
+
+
+    if usehttps:
+       scheme = 'https'
+    else:
+       scheme = 'http'
+
+    if not api_url:
+        log.error("VCAP_SERVICES_TONE_ANALYZER_SERVICE_API not set")
+
+    if not token_url:
+        log.error("VCAP_SERVICES_TONE_ANALYZER_TOKEN_ADDRESS not set")
+
+
+    log.info("Use Https %s ", usehttps)
+
+
+    # https://gateway.watsonplatform.net/tone-analyzer/api/v3/tone?version=2017-09-21&sentences=false
+    tone_analyzer_ep = "" + scheme + "://" + api_url + "/v3/tone?version=2017-09-21&sentences=false"
+
+    identity_token_url = "" + scheme + "://" + token_url
+
+
+try:
+    generate_tokens(None)
+except requests.exceptions.SSLError as err:
+	log.debug('SSL connection failed: %s', str(err))
+
+finally :
+	log.info("Starting analyzer tone_analyzer_ep: %s ", tone_analyzer_ep)
+	app.run(host='0.0.0.0', port=int(PORT))
