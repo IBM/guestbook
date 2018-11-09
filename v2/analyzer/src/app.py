@@ -37,6 +37,11 @@ global is_refresh
 
 def analyze_tone(input_text):
     log.info("tone_analyzer_ep is: %s ", tone_analyzer_ep)
+    if access_token:
+	log.info("access token is there.")
+    else:
+	log.debug("access_token not existing")
+	return None
 
     headers = {
          'Content-Type': 'text/plain',
@@ -75,7 +80,7 @@ def tone():
 '''
 POST identity/token method to generate an IAM access token by passing an API key
 '''
-@retry(requests.exceptions.SSLError, delay=2, tries=5)
+@retry(Exception, delay=2, tries=5)
 def generate_tokens(refresh):
 
 	api_key = os.getenv('VCAP_SERVICES_TONE_ANALYZER_API_KEY')
@@ -83,6 +88,10 @@ def generate_tokens(refresh):
 	is_refresh = refresh
 
 	params = None
+
+	global access_token
+
+	global refresh_token
 
 	if api_key:
 		log.info("api key is there.")
@@ -185,10 +194,11 @@ if __name__ == '__main__':
 
     identity_token_url = "" + scheme + "://" + token_url
 
+    access_token = ""
 
 try:
     generate_tokens(None)
-except requests.exceptions.SSLError as err:
+except Exception as err:
 	log.debug('SSL connection failed: %s', str(err))
 
 finally :
