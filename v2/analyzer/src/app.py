@@ -33,10 +33,15 @@ global access_token
 
 global is_refresh
 
-
+global expire_time
 
 def analyze_tone(input_text):
     log.info("tone_analyzer_ep is: %s ", tone_analyzer_ep)
+
+    # before getting tone, check if token is expired and refresh if so.
+    if datetime.utcnow() > expire_time:
+        generate_tokens(is_refresh)
+
     if access_token:
 	log.info("access token is there.")
     else:
@@ -65,6 +70,7 @@ def analyze_tone(input_text):
 '''
 @app.route('/tone', methods=['POST'])
 def tone():
+    log.info("Serving /tone")
     if not request.json or not 'input_text' in request.json:
         log.error("bad body: '%s'", request.data)
         abort(400)
@@ -85,18 +91,22 @@ def generate_tokens(refresh):
 
 	api_key = os.getenv('VCAP_SERVICES_TONE_ANALYZER_API_KEY')
 
-	is_refresh = refresh
-
 	params = None
+
+	global is_refresh
 
 	global access_token
 
 	global refresh_token
 
+	global expire_time
+
+	is_refresh = refresh
+
 	if api_key:
 		log.info("api key is there.")
 	else :
-		log.error("VCAP_SERVICES_TONE_ANALYZER_API_KEY  not set")
+		log.error("VCAP_SERVICES_TONE_ANALYZER_API_KEY not set")
 
 	if refresh:
 		headers = {
@@ -146,16 +156,8 @@ def generate_tokens(refresh):
 		expire_time = datetime.utcfromtimestamp(float(token_expiration))
 		log.info("Identity access token would expire at around: %s ", expire_time)
 
-		# refresh access_token and token_expiration to make sure api call works
 		log.info("current time : %s ", datetime.utcnow())
 
-
-		while ( datetime.utcnow() < expire_time ) :
-			time.sleep(60)
-		else :
-			log.info("Identity access and refresh tokens would be refreshed")
-			generate_tokens(is_refresh)
-			log.info("Identity access and refresh tokens have been refreshed")
 	else :
 
 		log.error("json : %s ", r.json())
