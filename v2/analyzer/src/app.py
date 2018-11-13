@@ -171,15 +171,7 @@ if __name__ == '__main__':
 
     api_url = os.getenv('VCAP_SERVICES_TONE_ANALYZER_SERVICE_API')
 
-    usehttps = os.getenv('USE_HTTPS')
-
     token_url = os.getenv('VCAP_SERVICES_TONE_ANALYZER_TOKEN_ADDRESS')
-
-
-    if usehttps:
-       scheme = 'https'
-    else:
-       scheme = 'http'
 
     if not api_url:
         log.error("VCAP_SERVICES_TONE_ANALYZER_SERVICE_API not set")
@@ -187,14 +179,10 @@ if __name__ == '__main__':
     if not token_url:
         log.error("VCAP_SERVICES_TONE_ANALYZER_TOKEN_ADDRESS not set")
 
-
-    log.info("Use Https %s ", usehttps)
-
-
     # https://gateway.watsonplatform.net/tone-analyzer/api/v3/tone?version=2017-09-21&sentences=false
-    tone_analyzer_ep = "" + scheme + "://" + api_url + "/v3/tone?version=2017-09-21&sentences=false"
+    tone_analyzer_ep = "" + api_url + "/v3/tone?version=2017-09-21&sentences=false"
 
-    identity_token_url = "" + scheme + "://" + token_url
+    identity_token_url = "" + token_url
 
     access_token = ""
 
