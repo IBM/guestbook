@@ -1,24 +1,26 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: iam
+  name: iam-watson
 spec:
   hosts:
   - iam.bluemix.net
+  - "*.watsonplatform.net"
   ports:
   - number: 443
     name: https
     protocol: HTTPS
-  resolution: DNS
+  resolution: NONE
   location: MESH_EXTERNAL
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: iam
+  name: iam-watson
 spec:
   hosts:
   - iam.bluemix.net
+  - "*.watsonplatform.net"
   tls:
   - match:
     - port: 443
@@ -30,36 +32,13 @@ spec:
         port:
           number: 443
       weight: 100
----
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: watson
-spec:
-  hosts:
-  - gateway.watsonplatform.net
-  ports:
-  - number: 443
-    name: https
-    protocol: HTTPS
-  resolution: DNS
-  location: MESH_EXTERNAL
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: watson
-spec:
-  hosts:
-  - gateway.watsonplatform.net
-  tls:
   - match:
     - port: 443
       sni_hosts:
-      - gateway.watsonplatform.net
+      - "*.watsonplatform.net"
     route:
     - destination:
-        host: gateway.watsonplatform.net
+        host: "*.watsonplatform.net"
         port:
           number: 443
       weight: 100
