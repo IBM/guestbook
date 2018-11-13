@@ -37,12 +37,12 @@ metadata:
   name: watson
 spec:
   hosts:
-  - "*.watsonplatform.net"
+  - gateway.watsonplatform.net
   ports:
   - number: 443
     name: https
     protocol: HTTPS
-  resolution: NONE
+  resolution: DNS
   location: MESH_EXTERNAL
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -51,15 +51,15 @@ metadata:
   name: watson
 spec:
   hosts:
-  - "*.watsonplatform.net"
+  - gateway.watsonplatform.net
   tls:
   - match:
     - port: 443
       sni_hosts:
-      - "*.watsonplatform.net"
+      - gateway.watsonplatform.net
     route:
     - destination:
-        host: "*.watsonplatform.net"
+        host: gateway.watsonplatform.net
         port:
           number: 443
       weight: 100
