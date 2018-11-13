@@ -26,11 +26,9 @@ spec:
         - name: VCAP_SERVICES_TONE_ANALYZER_API_KEY
           value:
         - name : VCAP_SERVICES_TONE_ANALYZER_TOKEN_ADDRESS
-          value: "iam.bluemix.net/identity/token"
+          value: "https://iam.bluemix.net/identity/token"
         - name: VCAP_SERVICES_TONE_ANALYZER_SERVICE_API
           value:
-        - name: USE_HTTPS
-          value: "True"
         ports:
         - containerPort: 5000
           name: http
