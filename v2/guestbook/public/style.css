@@ -16,7 +16,7 @@ h1, h2, p, input, a {
 }
 
 h1 {
-  color: #BDB76B;
+  color: #18d;
   font-size: 3.5em;
 }
 
@@ -33,7 +33,7 @@ form {
 input {
   border: 0;
   border-radius: 1000px;
-  box-shadow: inset 0 0 0 2px #BDB76B;
+  box-shadow: inset 0 0 0 2px #18d;
   display: inline;
   font-size: 1.5em;
   margin-bottom: 1em;
@@ -43,7 +43,7 @@ input {
 }
 
 form a {
-  background: #BDB76B;
+  background: #18d;
   border: 0;
   border-radius: 1000px;
   color: #FFF;
