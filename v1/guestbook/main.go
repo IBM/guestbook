@@ -17,7 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -38,6 +40,10 @@ var (
 
 type Input struct {
 	InputText string `json:"input_text"`
+}
+
+type Tone struct {
+	ToneName string `json:"tone_name"`
 }
 
 func GetList(key string) ([]string, error) {
@@ -85,6 +91,8 @@ func ListRangeHandler(rw http.ResponseWriter, req *http.Request) {
 	var data []byte
 
 	items, err := GetList(mux.Vars(req)["key"])
+	fmt.Printf("ListRangeHandler from guestbook key to read the list is %v", mux.Vars(req)["key"])
+
 	if err != nil {
 		data = []byte("Error getting list: " + err.Error() + "\n")
 	} else {
@@ -101,6 +109,48 @@ func ListPushHandler(rw http.ResponseWriter, req *http.Request) {
 
 	key := mux.Vars(req)["key"]
 	value := mux.Vars(req)["value"]
+
+	items, err := AppendToList(value, key)
+
+	if err != nil {
+		data = []byte("Error adding to list: " + err.Error() + "\n")
+	} else {
+		if data, err = json.MarshalIndent(items, "", ""); err != nil {
+			data = []byte("Error marshalling list: " + err.Error() + "\n")
+		}
+
+	}
+	rw.Write(data)
+}
+
+func ListRangev2Handler(rw http.ResponseWriter, req *http.Request) {
+	var data []byte
+
+	items, err := GetList(mux.Vars(req)["key"])
+	fmt.Printf("ListRangev2Handler from guestbook key to read the list is %v", mux.Vars(req)["key"])
+
+	if err != nil {
+		data = []byte("Error getting list: " + err.Error() + "\n")
+	} else {
+		if data, err = json.MarshalIndent(items, "", ""); err != nil {
+			data = []byte("Error marhsalling list: " + err.Error() + "\n")
+		}
+	}
+
+	rw.Write(data)
+}
+
+func ListPushv2Handler(rw http.ResponseWriter, req *http.Request) {
+	var data []byte
+
+	key := mux.Vars(req)["key"]
+	value := mux.Vars(req)["value"]
+
+	// propogate headers to analyzer service
+	headers := getForwardHeaders(req.Header)
+
+	// Add in the "tone" analyzer results
+	value += " : " + getPrimaryTone(value, headers)
 
 	items, err := AppendToList(value, key)
 
@@ -171,6 +221,77 @@ func findRedisURL() string {
 	return ""
 }
 
+// Note: This function will not work until we hook-up the Tone Analyzer service
+func getPrimaryTone(value string, headers http.Header) (tone string) {
+	u := Input{InputText: value}
+	b := new(bytes.Buffer)
+	json.NewEncoder(b).Encode(u)
+
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", "http://analyzer:80/tone", b)
+	if err != nil {
+		return "Error talking to tone analyzer service: " + err.Error()
+	}
+	req.Header.Add("Content-Type", "application/json")
+	// add headers
+	for k := range headers {
+		req.Header.Add(k, headers.Get(k))
+	}
+	// print out headers for debug
+	// fmt.Printf("getPrimaryTone headers %v", req.Header)
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "Error detecting tone: " + err.Error()
+	}
+	defer res.Body.Close()
+
+	body := []Tone{}
+	json.NewDecoder(res.Body).Decode(&body)
+	if len(body) > 0 {
+		// 7 tones:  anger, fear, joy, sadness, analytical, confident, and tentative
+		if body[0].ToneName == "Joy" {
+			return body[0].ToneName + " (✿◠‿◠)"
+		} else if body[0].ToneName == "Anger" {
+			return body[0].ToneName + " (ಠ_ಠ)"
+		} else if body[0].ToneName == "Fear" {
+			return body[0].ToneName + " (ง’̀-‘́)ง"
+		} else if body[0].ToneName == "Sadness" {
+			return body[0].ToneName + " （︶︿︶）"
+		} else if body[0].ToneName == "Analytical" {
+			return body[0].ToneName + " ( °□° )"
+		} else if body[0].ToneName == "Confident" {
+			return body[0].ToneName + " (▀̿Ĺ̯▀̿ ̿)"
+		} else if body[0].ToneName == "Tentative" {
+			return body[0].ToneName + " (•_•)"
+		}
+		return body[0].ToneName
+	}
+
+	return "Error - unable to detect Tone from the Analyzer service"
+}
+
+// return the needed header for distributed tracing
+func getForwardHeaders(h http.Header) (headers http.Header) {
+	incomingHeaders := []string{
+		"x-request-id",
+		"x-b3-traceid",
+		"x-b3-spanid",
+		"x-b3-parentspanid",
+		"x-b3-sampled",
+		"x-b3-flags",
+		"x-ot-span-context"}
+
+	header := make(http.Header, len(incomingHeaders))
+	for _, element := range incomingHeaders {
+		val := h.Get(element)
+		if val != "" {
+			header.Set(element, val)
+		}
+	}
+	return header
+}
+
 func main() {
 	// When using Redis, setup our DB connections
 	url := findRedisURL()
@@ -187,6 +308,8 @@ func main() {
 	r.Path("/info").Methods("GET").HandlerFunc(InfoHandler)
 	r.Path("/env").Methods("GET").HandlerFunc(EnvHandler)
 	r.Path("/hello").Methods("GET").HandlerFunc(HelloHandler)
+	r.Path("/lrangev2/{key}").Methods("GET").HandlerFunc(ListRangev2Handler)
+	r.Path("/rpushv2/{key}/{value}").Methods("GET").HandlerFunc(ListPushv2Handler)
 
 	n := negroni.Classic()
 	n.UseHandler(r)

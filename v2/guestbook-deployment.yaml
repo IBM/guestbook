@@ -9,7 +9,7 @@ spec:
   selector:
     matchLabels:
       app: guestbook
-  replicas: 3
+  replicas: 1 
   template:
     metadata:
       labels:
@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: guestbook
-        image: ibmcom/guestbook:v2
+        image: linsun/guestbookv2:latest
         resources:
           requests:
             cpu: 100m

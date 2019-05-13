@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
@@ -92,10 +93,13 @@ func AppendToList(item string, key string) ([]string, error) {
 	return items, nil
 }
 
+// copied from v1
 func ListRangeHandler(rw http.ResponseWriter, req *http.Request) {
 	var data []byte
 
 	items, err := GetList(mux.Vars(req)["key"])
+	fmt.Printf("ListRangeHandler from v2 guestbook - key to read the list is %v", mux.Vars(req)["key"])
+
 	if err != nil {
 		data = []byte("Error getting list: " + err.Error() + "\n")
 	} else {
@@ -107,7 +111,44 @@ func ListRangeHandler(rw http.ResponseWriter, req *http.Request) {
 	rw.Write(data)
 }
 
+// copied from v1
 func ListPushHandler(rw http.ResponseWriter, req *http.Request) {
+	var data []byte
+
+	key := mux.Vars(req)["key"]
+	value := mux.Vars(req)["value"]
+
+	items, err := AppendToList(value, key)
+
+	if err != nil {
+		data = []byte("Error adding to list: " + err.Error() + "\n")
+	} else {
+		if data, err = json.MarshalIndent(items, "", ""); err != nil {
+			data = []byte("Error marshalling list: " + err.Error() + "\n")
+		}
+
+	}
+	rw.Write(data)
+}
+
+func ListRangev2Handler(rw http.ResponseWriter, req *http.Request) {
+	var data []byte
+
+	items, err := GetList(mux.Vars(req)["key"])
+	fmt.Printf("ListRangev2Handler from v2 guestbook key to read the list is %v", mux.Vars(req)["key"])
+
+	if err != nil {
+		data = []byte("Error getting list: " + err.Error() + "\n")
+	} else {
+		if data, err = json.MarshalIndent(items, "", ""); err != nil {
+			data = []byte("Error marhsalling list: " + err.Error() + "\n")
+		}
+	}
+
+	rw.Write(data)
+}
+
+func ListPushv2Handler(rw http.ResponseWriter, req *http.Request) {
 	var data []byte
 
 	key := mux.Vars(req)["key"]
@@ -228,7 +269,7 @@ func getPrimaryTone(value string, headers http.Header) (tone string) {
 		return body[0].ToneName
 	}
 
-	return "No Tone Detected"
+	return "Error - unable to detect Tone from the Analyzer service"
 }
 
 // return the needed header for distributed tracing
@@ -257,11 +298,11 @@ func findRedisURL() string {
 	host := os.Getenv("REDIS_MASTER_SERVICE_HOST")
 	port := os.Getenv("REDIS_MASTER_SERVICE_PORT")
 	password := os.Getenv("REDIS_MASTER_SERVICE_PASSWORD")
-	master_port := os.Getenv("REDIS_MASTER_PORT")
+	masterPort := os.Getenv("REDIS_MASTER_PORT")
 
 	if host != "" && port != "" && password != "" {
 		return password + "@" + host + ":" + port
-	} else if master_port != "" {
+	} else if masterPort != "" {
 		return "redis-master:6379"
 	}
 	return ""
@@ -280,6 +321,8 @@ func main() {
 	startTime = time.Now()
 
 	r := mux.NewRouter()
+	r.Path("/lrangev2/{key}").Methods("GET").HandlerFunc(ListRangev2Handler)
+	r.Path("/rpushv2/{key}/{value}").Methods("GET").HandlerFunc(ListPushv2Handler)
 	r.Path("/lrange/{key}").Methods("GET").HandlerFunc(ListRangeHandler)
 	r.Path("/rpush/{key}/{value}").Methods("GET").HandlerFunc(ListPushHandler)
 	r.Path("/info").Methods("GET").HandlerFunc(InfoHandler)

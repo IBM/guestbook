@@ -6,7 +6,7 @@ metadata:
     app: guestbook
     version: "1.0"
 spec:
-  replicas: 3
+  replicas: 1 
   selector:
     matchLabels:
       app: guestbook
@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: guestbook
-        image: ibmcom/guestbook:v1
+        image: linsun/guestbookv1:latest
         ports:
         - name: http-server
           containerPort: 3000
