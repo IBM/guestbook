@@ -251,4 +251,4 @@ replicationcontroller "redis-slave" deleted
 service "redis-slave" deleted
 ```
 
-Tip: To tear down your Kubernetes cluster, follow the corresponding instructions in the version of the [Getting Started Guides](https://kubernetes.io/docs/getting-started-guides/) that you previously used to create your cluster.
+Tip: To tear down your Kubernetes cluster, follow the corresponding instructions in the version of the [Getting Started Guides](https://kubernetes.io/docs/setup/) that you previously used to create your cluster.
